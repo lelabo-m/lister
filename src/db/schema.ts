@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // --- Better-Auth tables ---
 
@@ -50,4 +50,42 @@ export const verification = pgTable("verification", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// --- Domaine métier ---
+
+export const conditionEnum = pgEnum("condition", [
+  "new",
+  "like_new",
+  "good",
+  "fair",
+]);
+
+export const listingStatusEnum = pgEnum("listing_status", [
+  "active",
+  "sold",
+  "archived",
+]);
+
+export const category = pgTable("category", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+});
+
+export const listing = pgTable("listing", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  price: integer("price").notNull(), // en centimes
+  condition: conditionEnum("condition").notNull(),
+  status: listingStatusEnum("status").notNull().default("active"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  categoryId: text("category_id").references(() => category.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
