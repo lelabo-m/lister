@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ListingsIdRouteImport } from './routes/listings/$id'
+import { Route as ApiListingsIdRouteImport } from './routes/api/listings/$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const LoginRoute = LoginRouteImport.update({
@@ -35,6 +36,11 @@ const ListingsIdRoute = ListingsIdRouteImport.update({
   path: '/listings/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiListingsIdRoute = ApiListingsIdRouteImport.update({
+  id: '/api/listings/$id',
+  path: '/api/listings/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/listings/$id': typeof ListingsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/listings/$id': typeof ApiListingsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/listings/$id': typeof ListingsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/listings/$id': typeof ApiListingsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +70,25 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/listings/$id': typeof ListingsIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/listings/$id': typeof ApiListingsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login' | '/listings/$id' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/listings/$id'
+    | '/api/auth/$'
+    | '/api/listings/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login' | '/listings/$id' | '/api/auth/$'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/listings/$id'
+    | '/api/auth/$'
+    | '/api/listings/$id'
   id:
     | '__root__'
     | '/'
@@ -75,6 +96,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/listings/$id'
     | '/api/auth/$'
+    | '/api/listings/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +105,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ListingsIdRoute: typeof ListingsIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiListingsIdRoute: typeof ApiListingsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/listings/$id': {
+      id: '/api/listings/$id'
+      path: '/api/listings/$id'
+      fullPath: '/api/listings/$id'
+      preLoaderRoute: typeof ApiListingsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -131,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ListingsIdRoute: ListingsIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiListingsIdRoute: ApiListingsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
