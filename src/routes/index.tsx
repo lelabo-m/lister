@@ -1,5 +1,5 @@
-import { getSession } from "@/lib/session";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { getSession } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {

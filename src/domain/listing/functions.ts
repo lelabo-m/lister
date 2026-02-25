@@ -1,30 +1,38 @@
-import { auth } from "@/lib/auth";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { Effect } from "effect";
-import {
-  ListingRepository,
-  ListingRepositoryDrizzle,
-  type CreateListingInput,
-  type UpdateListingInput,
-} from "./repository";
+
+import { ListingRepository, ListingRepositoryDrizzle } from "./repository";
+import { SessionError } from "./errors";
+import type { CreateListingInput, UpdateListingInput } from "./repository";
+import { auth } from "@/lib/auth";
+
+type HttpError = Error & { status: number };
+
+const isNonNull = <T>(value: T | null | undefined): value is NonNullable<T> =>
+  value != null;
 
 // Helper : récupère la session ou throw 401
 function requireSession() {
   return Effect.tryPromise({
     try: () => auth.api.getSession({ headers: getRequestHeaders() }),
-    catch: () => new Error("Session fetch failed"),
+    catch: () => new SessionError({ cause: "Session fetch failed" }),
   }).pipe(
-    Effect.flatMap((session) =>
-      session
-        ? Effect.succeed(session)
-        : Effect.fail(new Error("Unauthorized")),
+    Effect.filterOrFail(
+      isNonNull,
+      () => new SessionError({ cause: "No active session" }),
+    ),
+    Effect.catchTag("SessionError", () =>
+      Effect.fail(
+        Object.assign(new Error("Unauthorized"), { status: 401 }) as HttpError,
+      ),
     ),
   );
+  // --- Code générateur ici ---
 }
 
 // Helper : run un Effect avec le Layer Drizzle et throw si erreur
-function run<A>(effect: Effect.Effect<A, Error>) {
+function run<T>(effect: Effect.Effect<T, HttpError>) {
   return Effect.runPromise(effect);
 }
 
@@ -61,11 +69,16 @@ export const getListingWithUserStats = createServerFn({ method: "GET" })
     }).pipe(
       Effect.provide(ListingRepositoryDrizzle),
       Effect.catchTag("NotFoundError", () =>
-        Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
+        Effect.fail(
+          Object.assign(new Error("Not found"), { status: 404 }) as HttpError,
+        ),
       ),
       Effect.catchTag("DatabaseError", ({ cause }) =>
         Effect.fail(
-          Object.assign(new Error("Database error"), { cause, status: 500 }),
+          Object.assign(new Error("Database error"), {
+            cause,
+            status: 500,
+          }) as HttpError,
         ),
       ),
     );

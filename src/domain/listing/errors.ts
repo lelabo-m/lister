@@ -16,3 +16,7 @@ export class ValidationError extends Data.TaggedError("ValidationError")<{
 export class DatabaseError extends Data.TaggedError("DatabaseError")<{
   cause: unknown;
 }> {}
+
+export class SessionError extends Data.TaggedError("SessionError")<{
+  cause: string;
+}> {}

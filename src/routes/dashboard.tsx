@@ -1,17 +1,17 @@
 import {
+  Link,
+  createFileRoute,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
+import { useState } from "react";
+import {
   createListing,
   deleteListing,
   listMyListings,
 } from "@/domain/listing/functions";
 import { signOut } from "@/lib/auth-client";
-import { getSession } from "@/lib/session";
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useRouter,
-} from "@tanstack/react-router";
-import { useState } from "react";
+import { getSession } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {

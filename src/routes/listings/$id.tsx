@@ -1,5 +1,5 @@
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { getListingWithUserStats } from "@/domain/listing/functions";
-import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/listings/$id")({
   loader: async ({ params }) => {
