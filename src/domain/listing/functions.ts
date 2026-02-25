@@ -4,6 +4,7 @@ import { Effect } from "effect";
 
 import { ListingRepository, ListingRepositoryDrizzle } from "./repository";
 import { SessionError } from "./errors";
+import { indexListing, removeListing } from "./search";
 import type { CreateListingInput, UpdateListingInput } from "./repository";
 import { auth } from "@/lib/auth";
 
@@ -100,6 +101,7 @@ export const createListing = createServerFn({ method: "POST" })
           ),
         ),
       ),
+      Effect.tap((listing) => indexListing(listing)),
       Effect.provide(ListingRepositoryDrizzle),
       Effect.catchTag("ValidationError", ({ field, message }) =>
         Effect.fail(
@@ -109,6 +111,14 @@ export const createListing = createServerFn({ method: "POST" })
       Effect.catchTag("DatabaseError", ({ cause }) =>
         Effect.fail(
           Object.assign(new Error("Database error"), { cause, status: 500 }),
+        ),
+      ),
+      Effect.catchTag("TypeSenseError", ({ operation, cause }) =>
+        Effect.fail(
+          Object.assign(new Error(`TypeSenseError error on ${operation}`), {
+            cause,
+            status: 500,
+          }),
         ),
       ),
     );
@@ -153,6 +163,7 @@ export const deleteListing = createServerFn({ method: "POST" })
           Effect.flatMap((repo) => repo.delete(id, session.user.id)),
         ),
       ),
+      Effect.tap(() => removeListing(id)),
       Effect.provide(ListingRepositoryDrizzle),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
@@ -163,6 +174,14 @@ export const deleteListing = createServerFn({ method: "POST" })
       Effect.catchTag("DatabaseError", ({ cause }) =>
         Effect.fail(
           Object.assign(new Error("Database error"), { cause, status: 500 }),
+        ),
+      ),
+      Effect.catchTag("TypeSenseError", ({ operation, cause }) =>
+        Effect.fail(
+          Object.assign(new Error(`TypeSenseError error on ${operation}`), {
+            cause,
+            status: 500,
+          }),
         ),
       ),
     );

@@ -8,7 +8,7 @@ services:
       - typesense-data:/data
     command: >
       --data-dir /data
-      --api-key=${TYPESENSE_ADMIN_API_KEY:-local-dev-key}
+      --api-key=${TYPESENSE_ADMIN_API_KEY:Vi4nTkb7syW8xaa26VHAfoZRzji68Ubs}
       --enable-cors
 
 volumes:

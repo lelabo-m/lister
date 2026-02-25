@@ -20,3 +20,8 @@ export class DatabaseError extends Data.TaggedError("DatabaseError")<{
 export class SessionError extends Data.TaggedError("SessionError")<{
   cause: string;
 }> {}
+
+export class TypeSenseError extends Data.TaggedError("TypeSenseError")<{
+  operation: string;
+  cause: unknown;
+}> {}

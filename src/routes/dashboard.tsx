@@ -4,7 +4,7 @@ import {
   redirect,
   useRouter,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createListing,
   deleteListing,
@@ -12,6 +12,7 @@ import {
 } from "@/domain/listing/functions";
 import { signOut } from "@/lib/auth-client";
 import { getSession } from "@/lib/auth.server";
+import { posthog } from "@/lib/posthog";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
@@ -40,17 +41,18 @@ function DashboardPage() {
   >("good");
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    posthog.identify(user.id, { email: user.email });
+  }, [user.id, user.email]);
+
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
+    const priceInCents = Math.round(parseFloat(price) * 100);
     await createListing({
-      data: {
-        title,
-        description,
-        price: Math.round(parseFloat(price) * 100),
-        condition,
-      },
+      data: { title, description, price: priceInCents, condition },
     });
+    posthog.capture("listing_created", { title, price: priceInCents, condition });
     setShowForm(false);
     setTitle("");
     setDescription("");
@@ -61,6 +63,7 @@ function DashboardPage() {
 
   async function handleDelete(id: string) {
     await deleteListing({ data: id });
+    posthog.capture("listing_deleted", { listingId: id });
     router.invalidate();
   }
 

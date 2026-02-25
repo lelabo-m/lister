@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { getListingWithUserStats } from "@/domain/listing/functions";
+import { posthog } from "@/lib/posthog";
 
 export const Route = createFileRoute("/listings/$id")({
   loader: async ({ params }) => {
@@ -17,6 +19,15 @@ const conditionLabel: Record<string, string> = {
 
 function ListingPage() {
   const { listing, userListings } = Route.useLoaderData();
+
+  useEffect(() => {
+    posthog.capture("listing_viewed", {
+      listingId: listing.id,
+      title: listing.title,
+      price: listing.price,
+      condition: listing.condition,
+    });
+  }, [listing.id, listing.title, listing.price, listing.condition]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">

@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { getSession } from "@/lib/auth.server";
+import { SearchListings } from "@/components/SearchListings";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
@@ -14,38 +15,32 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
-      <main className="max-w-4xl mx-auto px-6 py-20 text-center">
-        <h1 className="text-5xl font-black mb-4">Lister</h1>
-        <p className="text-gray-400 text-xl mb-10">
-          Mini-marketplace manga. Browse en public, vends depuis le dashboard.
-        </p>
-
-        {session ? (
-          <div className="space-y-4">
-            <p className="text-gray-300">
-              Connecté en tant que{" "}
-              <span className="text-cyan-400 font-medium">
-                {session.user.email}
-              </span>
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-black">Lister</h1>
+            <p className="text-gray-400 mt-1">
+              Mini-marketplace manga.
             </p>
+          </div>
+          {session ? (
             <Link
               to="/dashboard"
-              className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-600 rounded-lg font-semibold transition-colors"
+              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg font-semibold transition-colors text-sm"
             >
               Mon dashboard
             </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-gray-500">Tu n'es pas connecté.</p>
+          ) : (
             <Link
               to="/login"
-              className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-600 rounded-lg font-semibold transition-colors"
+              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg font-semibold transition-colors text-sm"
             >
               Se connecter
             </Link>
-          </div>
-        )}
+          )}
+        </div>
+
+        <SearchListings />
       </main>
     </div>
   );
