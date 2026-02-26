@@ -17,6 +17,8 @@ services:
     container_name: lister-typesense
     ports:
       - "8108:8108"
+    env_file:
+      - /data/services/lister/.env
     volumes:
       - typesense-data:/data
     command: >
