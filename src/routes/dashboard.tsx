@@ -11,7 +11,7 @@ import {
   listMyListings,
 } from "@/domain/listing/functions";
 import { signOut } from "@/lib/auth-client";
-import { getSession } from "@/lib/auth.server";
+import { getSession } from "@/lib/session";
 import { posthog } from "@/lib/posthog";
 
 export const Route = createFileRoute("/dashboard")({
@@ -52,7 +52,11 @@ function DashboardPage() {
     await createListing({
       data: { title, description, price: priceInCents, condition },
     });
-    posthog.capture("listing_created", { title, price: priceInCents, condition });
+    posthog.capture("listing_created", {
+      title,
+      price: priceInCents,
+      condition,
+    });
     setShowForm(false);
     setTitle("");
     setDescription("");

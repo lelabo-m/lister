@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { getSession } from "@/lib/auth.server";
+import { getSession } from "@/lib/session";
 import { SearchListings } from "@/components/SearchListings";
 
 export const Route = createFileRoute("/")({
@@ -19,9 +19,7 @@ function HomePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-black">Lister</h1>
-            <p className="text-gray-400 mt-1">
-              Mini-marketplace manga.
-            </p>
+            <p className="text-gray-400 mt-1">Mini-marketplace manga.</p>
           </div>
           {session ? (
             <Link
