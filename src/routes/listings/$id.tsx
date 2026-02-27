@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { getListingWithUserStats } from "@/domain/listing/functions";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { posthog } from "@/lib/posthog";
+import { listingQueryOptions } from "@/lib/queries";
 
 export const Route = createFileRoute("/listings/$id")({
-  loader: async ({ params }) => {
-    return await getListingWithUserStats({ data: params.id });
-  },
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(listingQueryOptions(params.id)),
   component: ListingPage,
 });
 
@@ -18,7 +18,8 @@ const conditionLabel: Record<string, string> = {
 };
 
 function ListingPage() {
-  const { listing, userListings } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const { data: { listing, userListings } } = useSuspenseQuery(listingQueryOptions(id));
 
   useEffect(() => {
     posthog.capture("listing_viewed", {

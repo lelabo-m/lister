@@ -1,19 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 
-import type {
-  Condition,
-  ListingDocument,
-  SortOption,
-} from "@/lib/typesense-search";
-
-import {
-  CONDITIONS,
-  CONDITION_LABELS,
-  SORT_BY,
-  typesenseSearch,
-} from "@/lib/typesense-search";
+import type { Condition, SortOption } from "@/lib/typesense-search";
+import { CONDITIONS, CONDITION_LABELS } from "@/lib/typesense-search";
 import { posthog } from "@/lib/posthog";
+import { searchQueryOptions } from "@/lib/queries";
 
 export function SearchListings() {
   const [query, setQuery] = useState("");
@@ -21,51 +13,38 @@ export function SearchListings() {
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [results, setResults] = useState<ListingDocument[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+
+  // Valeurs debouncées passées à la query key
+  const [debouncedParams, setDebouncedParams] = useState({
+    query,
+    condition,
+    sortBy,
+    minPrice,
+    maxPrice,
+  });
 
   useEffect(() => {
-    setLoading(true);
-
-    const timer = setTimeout(async () => {
-      try {
-        const filters: string[] = ["status:=active"];
-        if (condition) filters.push(`condition:=${condition}`);
-        if (minPrice || maxPrice) {
-          const min = minPrice ? Number(minPrice) * 100 : 0;
-          const max = maxPrice ? Number(maxPrice) * 100 : 999_999_999;
-          filters.push(`price:[${min}..${max}]`);
-        }
-
-        const res = await typesenseSearch
-          .collections<ListingDocument>("listings")
-          .documents()
-          .search({
-            q: query || "*",
-            query_by: "title,description",
-            filter_by: filters.join(" && "),
-            sort_by: SORT_BY[sortBy],
-            per_page: 24,
-          });
-
-        setResults((res.hits ?? []).map((h) => h.document));
-        setTotal(res.found);
-        if (query) {
-          posthog.capture("search_performed", {
-            query,
-            condition,
-            sortBy,
-            resultsCount: res.found,
-          });
-        }
-      } finally {
-        setLoading(false);
-      }
+    const timer = setTimeout(() => {
+      setDebouncedParams({ query, condition, sortBy, minPrice, maxPrice });
     }, 300);
-
     return () => clearTimeout(timer);
   }, [query, condition, sortBy, minPrice, maxPrice]);
+
+  const { data, isLoading } = useQuery(searchQueryOptions(debouncedParams));
+
+  const results = data?.results ?? [];
+  const total = data?.total ?? 0;
+
+  useEffect(() => {
+    if (debouncedParams.query && data) {
+      posthog.capture("search_performed", {
+        query: debouncedParams.query,
+        condition: debouncedParams.condition,
+        sortBy: debouncedParams.sortBy,
+        resultsCount: data.total,
+      });
+    }
+  }, [debouncedParams, data]);
 
   return (
     <div className="space-y-6">
@@ -131,13 +110,13 @@ export function SearchListings() {
 
       {/* Résultats */}
       <div>
-        {!loading && (
+        {!isLoading && (
           <p className="text-slate-400 text-sm mb-4">
             {total} résultat{total !== 1 ? "s" : ""}
           </p>
         )}
 
-        {loading ? (
+        {isLoading ? (
           <p className="text-slate-500 text-center py-12">Recherche...</p>
         ) : results.length === 0 ? (
           <p className="text-slate-500 text-center py-12">Aucun résultat.</p>

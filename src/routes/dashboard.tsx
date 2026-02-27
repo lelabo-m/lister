@@ -2,17 +2,15 @@ import {
   Link,
   createFileRoute,
   redirect,
-  useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  createListing,
-  deleteListing,
-  listMyListings,
-} from "@/domain/listing/functions";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { deleteListing } from "@/domain/listing/functions";
 import { signOut } from "@/lib/auth-client";
 import { getSession } from "@/lib/session";
 import { posthog } from "@/lib/posthog";
+import { myListingsQueryOptions } from "@/lib/queries";
+import { CreateListingForm } from "@/components/CreateListingForm";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
@@ -20,55 +18,45 @@ export const Route = createFileRoute("/dashboard")({
     if (!session) throw redirect({ to: "/login" });
     return { user: session.user };
   },
-  loader: async () => {
-    const listings = await listMyListings();
-    return { listings };
-  },
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(myListingsQueryOptions),
   component: DashboardPage,
 });
 
 function DashboardPage() {
   const { user } = Route.useRouteContext();
-  const { listings } = Route.useLoaderData();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data: listings } = useSuspenseQuery(myListingsQueryOptions);
 
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [condition, setCondition] = useState<
-    "new" | "like_new" | "good" | "fair"
-  >("good");
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     posthog.identify(user.id, { email: user.email });
   }, [user.id, user.email]);
 
-  async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitting(true);
-    const priceInCents = Math.round(parseFloat(price) * 100);
-    await createListing({
-      data: { title, description, price: priceInCents, condition },
-    });
-    posthog.capture("listing_created", {
-      title,
-      price: priceInCents,
-      condition,
-    });
-    setShowForm(false);
-    setTitle("");
-    setDescription("");
-    setPrice("");
-    setSubmitting(false);
-    router.invalidate();
-  }
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteListing({ data: id }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: myListingsQueryOptions.queryKey });
+      const previous = queryClient.getQueryData(myListingsQueryOptions.queryKey);
+      queryClient.setQueryData(myListingsQueryOptions.queryKey, (old = []) =>
+        old.filter((l) => l.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, ctx) => {
+      queryClient.setQueryData(myListingsQueryOptions.queryKey, ctx?.previous);
+    },
+    onSuccess: (_result, id) => {
+      posthog.capture("listing_deleted", { listingId: id });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: myListingsQueryOptions.queryKey });
+    },
+  });
 
   async function handleDelete(id: string) {
-    await deleteListing({ data: id });
-    posthog.capture("listing_deleted", { listingId: id });
-    router.invalidate();
+    await deleteMutation.mutateAsync(id);
   }
 
   const active = listings.filter((l) => l.status === "active");
@@ -121,74 +109,10 @@ function DashboardPage() {
         </div>
 
         {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6 space-y-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm text-gray-400 mb-1">
-                  Titre
-                </label>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                  placeholder="One Piece Vol. 1"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm text-gray-400 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  rows={3}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">
-                  Prix (€)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                  placeholder="5.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">État</label>
-                <select
-                  value={condition}
-                  onChange={(e) =>
-                    setCondition(e.target.value as typeof condition)
-                  }
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="new">Neuf</option>
-                  <option value="like_new">Comme neuf</option>
-                  <option value="good">Bon état</option>
-                  <option value="fair">État correct</option>
-                </select>
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 rounded-lg font-semibold transition-colors"
-            >
-              {submitting ? "..." : "Publier"}
-            </button>
-          </form>
+          <CreateListingForm
+            userId={user.id}
+            onSuccess={() => setShowForm(false)}
+          />
         )}
 
         {listings.length === 0 ? (
@@ -225,7 +149,8 @@ function DashboardPage() {
                 </div>
                 <button
                   onClick={() => handleDelete(l.id)}
-                  className="text-red-400 hover:text-red-300 text-sm transition-colors"
+                  disabled={deleteMutation.isPending}
+                  className="text-red-400 hover:text-red-300 text-sm transition-colors disabled:opacity-50"
                 >
                   Supprimer
                 </button>
