@@ -28,6 +28,7 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "useUnknownInCatchVariables": true,
-     "exactOptionalPropertyTypes": true, 
-     "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "noPropertyAccessFromIndexSignature": true
+  }
 }

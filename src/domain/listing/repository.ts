@@ -7,32 +7,9 @@ import {
   ValidationError,
 } from "./errors";
 import type { Condition } from "./constants";
+import type { ListingInsert, ListingSelect, ListingUpdate } from "@/db/schema";
 import { db } from "@/db/client";
 import { listing } from "@/db/schema";
-
-// --- Types ---
-
-export type Listing = typeof listing.$inferSelect;
-
-export type CreateListingInput = {
-  title: string;
-  description: string;
-  price: number; // en centimes
-  condition: Condition;
-  categoryId?: string;
-  userId: string;
-};
-
-export type CreateListingFormInput = Omit<CreateListingInput, "userId">;
-
-export type UpdateListingInput = {
-  title?: string;
-  description?: string;
-  price?: number;
-  condition?: Condition;
-  status?: "active" | "sold" | "archived";
-  categoryId?: string;
-};
 
 // --- Interface du service ---
 
@@ -41,18 +18,18 @@ export class ListingRepository extends Context.Tag("ListingRepository")<
   {
     getById: (
       id: string,
-    ) => Effect.Effect<Listing, NotFoundError | DatabaseError>;
+    ) => Effect.Effect<ListingSelect, NotFoundError | DatabaseError>;
 
     create: (
-      input: CreateListingInput,
-    ) => Effect.Effect<Listing, ValidationError | DatabaseError>;
+      input: Omit<ListingInsert, "id">,
+    ) => Effect.Effect<ListingSelect, ValidationError | DatabaseError>;
 
     update: (
       id: string,
-      input: UpdateListingInput,
+      input: ListingUpdate,
       requestingUserId: string,
     ) => Effect.Effect<
-      Listing,
+      ListingSelect,
       NotFoundError | UnauthorizedError | DatabaseError
     >;
 
@@ -61,7 +38,9 @@ export class ListingRepository extends Context.Tag("ListingRepository")<
       requestingUserId: string,
     ) => Effect.Effect<void, NotFoundError | UnauthorizedError | DatabaseError>;
 
-    listByUser: (userId: string) => Effect.Effect<Listing[], DatabaseError>;
+    listByUser: (
+      userId: string,
+    ) => Effect.Effect<ListingSelect[], DatabaseError>;
   }
 >() {}
 
@@ -192,12 +171,12 @@ export const ListingRepositoryMock = Layer.succeed(ListingRepository, {
     }),
   create: (input) =>
     Effect.succeed({
+      ...input,
       id: "mock-listing-id",
       status: "active" as const,
       categoryId: input.categoryId ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
-      ...input,
     }),
   update: (id, input) =>
     Effect.succeed({

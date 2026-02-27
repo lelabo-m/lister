@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import type { Condition } from "@/lib/typesense-search";
-import type { CreateListingFormInput } from "@/domain/listing/repository";
+import type { ListingCreateInput, ListingSelect } from "@/db/schema";
 import { createListing } from "@/domain/listing/functions";
 import { posthog } from "@/lib/posthog";
 import { myListingsQueryOptions } from "@/lib/queries";
@@ -32,7 +32,7 @@ export function CreateListingForm({
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (data: CreateListingFormInput) => createListing({ data }),
+    mutationFn: (data: ListingCreateInput) => createListing({ data }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({
         queryKey: myListingsQueryOptions.queryKey,
@@ -43,21 +43,21 @@ export function CreateListingForm({
       queryClient.setQueryData(myListingsQueryOptions.queryKey, (old = []) => [
         ...old,
         {
-          id: `temp-${Date.now()}`,
           ...input,
+          id: `temp-${Date.now()}`,
           status: "active" as const,
           userId,
           categoryId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        },
+        } as ListingSelect,
       ]);
       return { previous };
     },
     onError: (_err, _input, ctx) => {
       queryClient.setQueryData(myListingsQueryOptions.queryKey, ctx?.previous);
     },
-    onSuccess: (created) => {
+    onSuccess: (created: ListingSelect) => {
       queryClient.setQueryData(myListingsQueryOptions.queryKey, (old = []) =>
         old.map((l) => (l.id.startsWith("temp-") ? created : l)),
       );
