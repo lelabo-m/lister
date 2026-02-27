@@ -1,23 +1,29 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
 
+import { Schema } from "effect";
 import type { Condition } from "@/lib/typesense-search";
 import type { ListingCreateInput, ListingSelect } from "@/db/schema";
-import { createListing } from "@/domain/listing/functions";
-import { posthog } from "@/lib/posthog";
 import { myListingsQueryOptions } from "@/lib/queries";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/typesense-search";
+import { createListing } from "@/domain/listing/functions";
+import { posthog } from "@/lib/posthog";
 
-const listingSchema = z.object({
-  title: z.string().min(1, "Titre requis"),
-  description: z
-    .string()
-    .min(10, "Description trop courte (10 caractères min)"),
-  price: z
-    .string()
-    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, "Prix invalide"),
-  condition: z.enum(CONDITIONS),
+const listingFormSchema = Schema.Struct({
+  title: Schema.String.pipe(
+    Schema.minLength(1, { message: () => "Titre requis" }),
+  ),
+  description: Schema.String.pipe(
+    Schema.minLength(10, {
+      message: () => "Description trop courte (10 caractères min)",
+    }),
+  ),
+  price: Schema.String.pipe(
+    Schema.filter((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
+      message: () => "Prix invalide",
+    }),
+  ),
+  condition: Schema.Literal(...CONDITIONS),
 });
 
 interface CreateListingFormProps {
@@ -81,12 +87,10 @@ export function CreateListingForm({
       price: "",
       condition: "good" as Condition,
     },
-    validators: {
-      onSubmit: listingSchema,
-    },
+    validators: { onSubmit: Schema.standardSchemaV1(listingFormSchema) },
     onSubmit: async ({ value }) => {
-      const price = Math.round(parseFloat(value.price) * 100);
-      await mutation.mutateAsync({ ...value, price });
+      const _price = Math.round(parseFloat(value.price) * 100);
+      await mutation.mutateAsync({ ...value, price: _price });
       onSuccess();
     },
   });
