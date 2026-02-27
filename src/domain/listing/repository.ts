@@ -6,6 +6,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "./errors";
+import type { Condition } from "./constants";
 import { db } from "@/db/client";
 import { listing } from "@/db/schema";
 
@@ -17,16 +18,18 @@ export type CreateListingInput = {
   title: string;
   description: string;
   price: number; // en centimes
-  condition: "new" | "like_new" | "good" | "fair";
+  condition: Condition;
   categoryId?: string;
   userId: string;
 };
+
+export type CreateListingFormInput = Omit<CreateListingInput, "userId">;
 
 export type UpdateListingInput = {
   title?: string;
   description?: string;
   price?: number;
-  condition?: "new" | "like_new" | "good" | "fair";
+  condition?: Condition;
   status?: "active" | "sold" | "archived";
   categoryId?: string;
 };
@@ -180,7 +183,7 @@ export const ListingRepositoryMock = Layer.succeed(ListingRepository, {
       title: "One Piece Vol. 1",
       description: "Très bon état",
       price: 500,
-      condition: "like_new" as const,
+      condition: "like_new" as Condition,
       status: "active" as const,
       userId: "mock-user-id",
       categoryId: null,
@@ -202,7 +205,7 @@ export const ListingRepositoryMock = Layer.succeed(ListingRepository, {
       title: input.title ?? "Mock",
       description: input.description ?? "Mock",
       price: input.price ?? 0,
-      condition: input.condition ?? ("good" as const),
+      condition: input.condition ?? ("good" as Condition),
       status: input.status ?? ("active" as const),
       userId: "mock-user-id",
       categoryId: input.categoryId ?? null,

@@ -24,6 +24,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "noUncheckedIndexedAccess": true
-  }
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+     "exactOptionalPropertyTypes": true, 
+     "noPropertyAccessFromIndexSignature": true,
 }

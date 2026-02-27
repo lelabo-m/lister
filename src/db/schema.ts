@@ -1,4 +1,5 @@
 import { boolean, integer, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { CONDITIONS } from "@/domain/listing/constants";
 
 // --- Better-Auth tables ---
 
@@ -54,12 +55,7 @@ export const verification = pgTable("verification", {
 
 // --- Domaine métier ---
 
-export const conditionEnum = pgEnum("condition", [
-  "new",
-  "like_new",
-  "good",
-  "fair",
-]);
+export const conditionEnum = pgEnum("condition", CONDITIONS);
 
 export const listingStatusEnum = pgEnum("listing_status", [
   "active",

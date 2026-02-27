@@ -1,17 +1,23 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+
+import type { Condition } from "@/lib/typesense-search";
+import type { CreateListingFormInput } from "@/domain/listing/repository";
 import { createListing } from "@/domain/listing/functions";
 import { posthog } from "@/lib/posthog";
 import { myListingsQueryOptions } from "@/lib/queries";
+import { CONDITIONS, CONDITION_LABELS } from "@/lib/typesense-search";
 
 const listingSchema = z.object({
   title: z.string().min(1, "Titre requis"),
-  description: z.string().min(10, "Description trop courte (10 caractères min)"),
+  description: z
+    .string()
+    .min(10, "Description trop courte (10 caractères min)"),
   price: z
     .string()
     .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, "Prix invalide"),
-  condition: z.enum(["new", "like_new", "good", "fair"]),
+  condition: z.enum(CONDITIONS),
 });
 
 interface CreateListingFormProps {
@@ -19,19 +25,21 @@ interface CreateListingFormProps {
   onSuccess: () => void;
 }
 
-export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps) {
+export function CreateListingForm({
+  userId,
+  onSuccess,
+}: CreateListingFormProps) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (data: {
-      title: string;
-      description: string;
-      price: number;
-      condition: "new" | "like_new" | "good" | "fair";
-    }) => createListing({ data }),
+    mutationFn: (data: CreateListingFormInput) => createListing({ data }),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: myListingsQueryOptions.queryKey });
-      const previous = queryClient.getQueryData(myListingsQueryOptions.queryKey);
+      await queryClient.cancelQueries({
+        queryKey: myListingsQueryOptions.queryKey,
+      });
+      const previous = queryClient.getQueryData(
+        myListingsQueryOptions.queryKey,
+      );
       queryClient.setQueryData(myListingsQueryOptions.queryKey, (old = []) => [
         ...old,
         {
@@ -60,7 +68,9 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: myListingsQueryOptions.queryKey });
+      queryClient.invalidateQueries({
+        queryKey: myListingsQueryOptions.queryKey,
+      });
     },
   });
 
@@ -69,7 +79,7 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
       title: "",
       description: "",
       price: "",
-      condition: "good" as "new" | "like_new" | "good" | "fair",
+      condition: "good" as Condition,
     },
     validators: {
       onSubmit: listingSchema,
@@ -101,11 +111,13 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
                 placeholder="One Piece Vol. 1"
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
               />
-              {field.state.meta.errors.filter((err) => err != null).map((err) => (
-                <p key={err.message} className="text-red-400 text-xs mt-1">
-                  {err.message}
-                </p>
-              ))}
+              {field.state.meta.errors
+                .filter((err) => err != null)
+                .map((err) => (
+                  <p key={err.message} className="text-red-400 text-xs mt-1">
+                    {err.message}
+                  </p>
+                ))}
             </div>
           )}
         </form.Field>
@@ -123,11 +135,13 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
                 rows={3}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
               />
-              {field.state.meta.errors.filter((err) => err != null).map((err) => (
-                <p key={err.message} className="text-red-400 text-xs mt-1">
-                  {err.message}
-                </p>
-              ))}
+              {field.state.meta.errors
+                .filter((err) => err != null)
+                .map((err) => (
+                  <p key={err.message} className="text-red-400 text-xs mt-1">
+                    {err.message}
+                  </p>
+                ))}
             </div>
           )}
         </form.Field>
@@ -148,11 +162,13 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
                 placeholder="5.00"
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
               />
-              {field.state.meta.errors.filter((err) => err != null).map((err) => (
-                <p key={err.message} className="text-red-400 text-xs mt-1">
-                  {err.message}
-                </p>
-              ))}
+              {field.state.meta.errors
+                .filter((err) => err != null)
+                .map((err) => (
+                  <p key={err.message} className="text-red-400 text-xs mt-1">
+                    {err.message}
+                  </p>
+                ))}
             </div>
           )}
         </form.Field>
@@ -164,17 +180,16 @@ export function CreateListingForm({ userId, onSuccess }: CreateListingFormProps)
               <select
                 value={field.state.value}
                 onChange={(e) =>
-                  field.handleChange(
-                    e.target.value as "new" | "like_new" | "good" | "fair",
-                  )
+                  field.handleChange(e.target.value as Condition)
                 }
                 onBlur={field.handleBlur}
                 className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
               >
-                <option value="new">Neuf</option>
-                <option value="like_new">Comme neuf</option>
-                <option value="good">Bon état</option>
-                <option value="fair">État correct</option>
+                {CONDITIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {CONDITION_LABELS[c]}
+                  </option>
+                ))}
               </select>
             </div>
           )}

@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { ListingRepository, ListingRepositoryDrizzle } from "./repository";
 import { SessionError } from "./errors";
 import { indexListing, removeListing } from "./search";
-import type { CreateListingInput, UpdateListingInput } from "./repository";
+import type { CreateListingFormInput, UpdateListingInput } from "./repository";
 import { auth } from "@/lib/auth";
 
 type HttpError = Error & { status: number };
@@ -89,7 +89,7 @@ export const getListingWithUserStats = createServerFn({ method: "GET" })
 // --- createListing ---
 
 export const createListing = createServerFn({ method: "POST" })
-  .inputValidator((data: Omit<CreateListingInput, "userId">) => data)
+  .inputValidator((data: CreateListingFormInput) => data)
   .handler(async ({ data }) => {
     const sessionEffect = requireSession();
 
