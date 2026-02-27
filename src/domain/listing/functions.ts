@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { ListingRepository, ListingRepositoryDrizzle } from "./repository";
 import { SessionError } from "./errors";
 import { indexListing, removeListing } from "./search";
-import type { ListingCreateInput, ListingUpdate } from "@/db/schema";
+import type { ListingInsert, ListingUpdate } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 type HttpError = Error & { status: number };
@@ -87,9 +87,13 @@ export const getListingWithUserStats = createServerFn({ method: "GET" })
   });
 
 // --- createListing ---
+export type CreateListingInput = Pick<
+  ListingInsert,
+  "title" | "description" | "price" | "condition"
+>;
 
 export const createListing = createServerFn({ method: "POST" })
-  .inputValidator((data: ListingCreateInput) => data)
+  .inputValidator((data: CreateListingInput) => data)
   .handler(async ({ data }) => {
     const sessionEffect = requireSession();
 

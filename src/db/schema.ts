@@ -103,9 +103,5 @@ export const listingSelect = createSelectSchema(listing);
 export type ListingSelect = Schema.Schema.Type<typeof listingSelect>;
 export const listingInsert = createInsertSchema(listing);
 export type ListingInsert = Schema.Schema.Type<typeof listingInsert>;
-export type ListingCreateInput = Pick<
-  ListingInsert,
-  "title" | "description" | "price" | "condition"
->;
 export const listingUpdate = createUpdateSchema(listing);
 export type ListingUpdate = Schema.Schema.Type<typeof listingUpdate>;

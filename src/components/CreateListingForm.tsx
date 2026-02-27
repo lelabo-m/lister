@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Schema } from "effect";
 import type { Condition } from "@/lib/typesense-search";
-import type { ListingCreateInput, ListingSelect } from "@/db/schema";
+import type { ListingSelect } from "@/db/schema";
+import type { CreateListingInput } from "@/domain/listing/functions";
 import { myListingsQueryOptions } from "@/lib/queries";
 import { CONDITIONS, CONDITION_LABELS } from "@/lib/typesense-search";
 import { createListing } from "@/domain/listing/functions";
@@ -38,7 +39,7 @@ export function CreateListingForm({
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (data: ListingCreateInput) => createListing({ data }),
+    mutationFn: (data: CreateListingInput) => createListing({ data }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({
         queryKey: myListingsQueryOptions.queryKey,
