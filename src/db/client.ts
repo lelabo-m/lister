@@ -2,12 +2,15 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { PgClient } from "@effect/sql-pg";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
-import { Context, Effect, Layer, Redacted } from "effect";
+import { Config, Context, Effect, Layer, Redacted } from "effect";
 import { types } from "pg";
 import * as schema from "./schema";
 
+// Validé au démarrage — crash explicite si DATABASE_URL est absent
+const databaseUrl = Effect.runSync(Config.redacted("DATABASE_URL"));
+
 // Plain Drizzle — pour better-auth (ne peut pas utiliser l'API Effect)
-const sql = neon(process.env["DATABASE_URL"]!);
+const sql = neon(Redacted.value(databaseUrl));
 export const db = drizzle({ client: sql, schema });
 
 // --- Effect infrastructure ---
@@ -34,7 +37,7 @@ const DRIZZLE_DATE_TYPE_IDS = [
 
 // Configure the PgClient layer
 export const PgClientLive = PgClient.layer({
-  url: Redacted.make(process.env["DATABASE_URL"]!),
+  url: databaseUrl,
   ssl: true,
   types: {
     getTypeParser: (typeId, format) => {

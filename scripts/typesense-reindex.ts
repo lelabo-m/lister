@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { listing } from "@/db/schema";
 import { ensureCollection, indexListing } from "@/domain/listing/search";
+import { TypesenseLive } from "@/lib/typesense";
 
 const reindex = Effect.gen(function* () {
   yield* ensureCollection();
@@ -22,7 +23,7 @@ const reindex = Effect.gen(function* () {
   return listings.length;
 });
 
-Effect.runPromise(reindex)
+Effect.runPromise(reindex.pipe(Effect.provide(TypesenseLive)))
   .then((count) => {
     console.log(`✅ ${count} listings re-indexed.`);
     process.exit(0);

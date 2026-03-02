@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import { ListingRepository, ListingRepositoryLive } from "./repository";
 import { SessionError } from "./errors";
@@ -9,6 +9,7 @@ import type { SqlError } from "@effect/sql/SqlError";
 
 import type { ListingInsert, ListingUpdate } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { TypesenseLive } from "@/lib/typesense";
 
 type HttpError = Error & { status: number };
 
@@ -120,7 +121,7 @@ export const createListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap((listing) => indexListing(listing)),
-      Effect.provide(ListingRepositoryLive),
+      Effect.provide(Layer.merge(ListingRepositoryLive, TypesenseLive)),
       Effect.catchTag("ValidationError", ({ field, message }) =>
         Effect.fail(
           Object.assign(new Error(`${field}: ${message}`), { status: 400 }),
@@ -182,7 +183,7 @@ export const deleteListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap(() => removeListing(id)),
-      Effect.provide(ListingRepositoryLive),
+      Effect.provide(Layer.merge(ListingRepositoryLive, TypesenseLive)),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),

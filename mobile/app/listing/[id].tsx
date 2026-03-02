@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
-import type { Condition } from "../../lib/typesense";
-import { CONDITION_LABELS } from "../../lib/typesense";
+import type { Condition } from "@/lib/typesense";
+import { CONDITION_LABELS } from "@/lib/typesense";
 
 type Listing = {
   id: string;
@@ -54,7 +60,10 @@ export default function ListingScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: 16 }}
+    >
       <View style={styles.card}>
         <View style={styles.header}>
           <Text style={styles.title}>{listing.title}</Text>
@@ -63,12 +72,15 @@ export default function ListingScreen() {
 
         <View style={styles.badges}>
           <Text style={styles.badge}>
-            {CONDITION_LABELS[listing.condition as Condition] ?? listing.condition}
+            {CONDITION_LABELS[listing.condition as Condition] ??
+              listing.condition}
           </Text>
           <Text
             style={[
               styles.badge,
-              listing.status === "active" ? styles.badgeActive : styles.badgeInactive,
+              listing.status === "active"
+                ? styles.badgeActive
+                : styles.badgeInactive,
             ]}
           >
             {listing.status}

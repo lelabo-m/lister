@@ -3,7 +3,7 @@ import { TypeSenseError } from "./errors";
 import type { CollectionCreateSchema } from "typesense/lib/Typesense/Collections.js";
 
 import type { Listing } from "./repository";
-import { typesenseAdmin } from "@/lib/typesense";
+import { TypesenseService } from "@/lib/typesense";
 
 // --- Schema de la collection ---
 
@@ -43,33 +43,38 @@ function toDocument(listing: Listing) {
 // --- Effets publics ---
 
 export function ensureCollection() {
-  return Effect.tryPromise({
-    try: async () => {
-      try {
-        await typesenseAdmin.collections(COLLECTION).retrieve();
-      } catch {
-        await typesenseAdmin.collections().create(listingCollectionSchema);
-      }
-    },
-    catch: (cause) =>
-      new TypeSenseError({ operation: "ensureCollection", cause }),
+  return Effect.gen(function* () {
+    const client = yield* TypesenseService;
+    yield* Effect.tryPromise({
+      try: async () => {
+        try {
+          await client.collections(COLLECTION).retrieve();
+        } catch {
+          await client.collections().create(listingCollectionSchema);
+        }
+      },
+      catch: (cause) => new TypeSenseError({ operation: "ensureCollection", cause }),
+    });
   });
 }
 
 export function indexListing(listing: Listing) {
-  return Effect.tryPromise({
-    try: () =>
-      typesenseAdmin
-        .collections(COLLECTION)
-        .documents()
-        .upsert(toDocument(listing)),
-    catch: (cause) => new TypeSenseError({ operation: "index", cause }),
+  return Effect.gen(function* () {
+    const client = yield* TypesenseService;
+    yield* Effect.tryPromise({
+      try: () =>
+        client.collections(COLLECTION).documents().upsert(toDocument(listing)),
+      catch: (cause) => new TypeSenseError({ operation: "index", cause }),
+    });
   });
 }
 
 export function removeListing(id: string) {
-  return Effect.tryPromise({
-    try: () => typesenseAdmin.collections(COLLECTION).documents(id).delete(),
-    catch: (cause) => new TypeSenseError({ operation: "remove", cause }),
+  return Effect.gen(function* () {
+    const client = yield* TypesenseService;
+    yield* Effect.tryPromise({
+      try: () => client.collections(COLLECTION).documents(id).delete(),
+      catch: (cause) => new TypeSenseError({ operation: "remove", cause }),
+    });
   });
 }
