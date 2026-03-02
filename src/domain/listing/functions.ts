@@ -2,9 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { Effect } from "effect";
 
-import { ListingRepository, ListingRepositoryDrizzle } from "./repository";
+import { ListingRepository, ListingRepositoryLive } from "./repository";
 import { SessionError } from "./errors";
 import { indexListing, removeListing } from "./search";
+import type { SqlError } from "@effect/sql/SqlError";
+
 import type { ListingInsert, ListingUpdate } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
@@ -29,12 +31,21 @@ function requireSession() {
       ),
     ),
   );
-  // --- Code générateur ici ---
 }
 
-// Helper : run un Effect avec le Layer Drizzle et throw si erreur
-function run<T>(effect: Effect.Effect<T, HttpError>) {
-  return Effect.runPromise(effect);
+// Helper : run un Effect, absorbe SqlError (échec d'initialisation de la connexion)
+function run<T>(effect: Effect.Effect<T, HttpError | SqlError>) {
+  return effect.pipe(
+    Effect.catchTag("SqlError", ({ cause }) =>
+      Effect.fail(
+        Object.assign(new Error("Database connection error"), {
+          cause,
+          status: 500,
+        }) as HttpError,
+      ),
+    ),
+    Effect.runPromise,
+  );
 }
 
 // --- getListing ---
@@ -42,9 +53,11 @@ function run<T>(effect: Effect.Effect<T, HttpError>) {
 export const getListing = createServerFn({ method: "GET" })
   .inputValidator((id: string) => id)
   .handler(async ({ data: id }) => {
-    const effect = ListingRepository.pipe(
-      Effect.flatMap((repo) => repo.getById(id)),
-      Effect.provide(ListingRepositoryDrizzle),
+    const effect = Effect.gen(function* () {
+      const repository = yield* ListingRepository;
+      return yield* repository.findById(id);
+    }).pipe(
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -54,6 +67,7 @@ export const getListing = createServerFn({ method: "GET" })
         ),
       ),
     );
+
     return run(effect);
   });
 
@@ -64,11 +78,11 @@ export const getListingWithUserStats = createServerFn({ method: "GET" })
   .handler(async ({ data: id }) => {
     const effect = Effect.gen(function* () {
       const repo = yield* ListingRepository;
-      const listing = yield* repo.getById(id);
+      const listing = yield* repo.findById(id);
       const userListings = yield* repo.listByUser(listing.userId);
       return { listing, userListings };
     }).pipe(
-      Effect.provide(ListingRepositoryDrizzle),
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(
           Object.assign(new Error("Not found"), { status: 404 }) as HttpError,
@@ -106,7 +120,7 @@ export const createListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap((listing) => indexListing(listing)),
-      Effect.provide(ListingRepositoryDrizzle),
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("ValidationError", ({ field, message }) =>
         Effect.fail(
           Object.assign(new Error(`${field}: ${message}`), { status: 400 }),
@@ -140,7 +154,7 @@ export const updateListing = createServerFn({ method: "POST" })
           Effect.flatMap((repo) => repo.update(id, input, session.user.id)),
         ),
       ),
-      Effect.provide(ListingRepositoryDrizzle),
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -168,7 +182,7 @@ export const deleteListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap(() => removeListing(id)),
-      Effect.provide(ListingRepositoryDrizzle),
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -202,7 +216,7 @@ export const listMyListings = createServerFn({ method: "GET" }).handler(
           Effect.flatMap((repo) => repo.listByUser(session.user.id)),
         ),
       ),
-      Effect.provide(ListingRepositoryDrizzle),
+      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("DatabaseError", ({ cause }) =>
         Effect.fail(
           Object.assign(new Error("Database error"), { cause, status: 500 }),

@@ -8,15 +8,18 @@ import {
 } from "./errors";
 import type { Condition } from "./constants";
 import type { ListingInsert, ListingSelect, ListingUpdate } from "@/db/schema";
-import { db } from "@/db/client";
+import { DatabaseLive, DrizzleService } from "@/db/client";
 import { listing } from "@/db/schema";
+
+export type { ListingSelect } from "@/db/schema";
+export type Listing = ListingSelect;
 
 // --- Interface du service ---
 
 export class ListingRepository extends Context.Tag("ListingRepository")<
   ListingRepository,
   {
-    getById: (
+    findById: (
       id: string,
     ) => Effect.Effect<ListingSelect, NotFoundError | DatabaseError>;
 
@@ -46,117 +49,109 @@ export class ListingRepository extends Context.Tag("ListingRepository")<
 
 // --- Layer Drizzle (production) ---
 
-export const ListingRepositoryDrizzle = Layer.succeed(ListingRepository, {
-  getById: (id) =>
-    Effect.tryPromise({
-      try: () =>
-        db
-          .select()
-          .from(listing)
-          .where(eq(listing.id, id))
-          .then((rows) => rows[0]),
-      catch: (cause) => new DatabaseError({ cause }),
-    }).pipe(
-      Effect.flatMap((row) =>
-        row ? Effect.succeed(row) : Effect.fail(new NotFoundError({ id })),
-      ),
-    ),
+export const ListingRepositoryLive = Layer.effect(
+  ListingRepository,
+  Effect.gen(function* () {
+    const db = yield* DrizzleService;
 
-  create: (input) => {
-    if (input.price < 0) {
-      return Effect.fail(
-        new ValidationError({
-          field: "price",
-          message: "Le prix ne peut pas être négatif",
+    return {
+      findById: (id) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select()
+            .from(listing)
+            .where(eq(listing.id, id))
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+          return yield* Effect.fromNullable(rows[0]).pipe(
+            Effect.mapError(() => new NotFoundError({ id })),
+          );
         }),
-      );
-    }
-    const id = crypto.randomUUID();
-    return Effect.tryPromise({
-      try: () =>
-        db
-          .insert(listing)
-          .values({ ...input, id })
-          .returning()
-          .then((rows) => rows[0]!),
-      catch: (cause) => new DatabaseError({ cause }),
-    });
-  },
+      create: (input) =>
+        Effect.gen(function* () {
+          if (input.price < 0) {
+            yield* Effect.fail(
+              new ValidationError({
+                field: "price",
+                message: "Le prix ne peut pas être négatif",
+              }),
+            );
+          }
+          const id = crypto.randomUUID();
+          const rows = yield* db
+            .insert(listing)
+            .values({ ...input, id })
+            .returning()
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+          return yield* Effect.fromNullable(rows[0]).pipe(
+            Effect.mapError(
+              () => new DatabaseError({ cause: "Insert returned no row" }),
+            ),
+          );
+        }),
 
-  update: (id, input, requestingUserId) =>
-    Effect.tryPromise({
-      try: () =>
-        db
-          .select()
-          .from(listing)
-          .where(eq(listing.id, id))
-          .then((rows) => rows[0]),
-      catch: (cause) => new DatabaseError({ cause }),
-    }).pipe(
-      Effect.flatMap((row) =>
-        row ? Effect.succeed(row) : Effect.fail(new NotFoundError({ id })),
-      ),
-      Effect.flatMap((row) =>
-        row.userId !== requestingUserId
-          ? Effect.fail(
+      update: (id, input, requestingUserId) =>
+        Effect.gen(function* () {
+          const retrievedRows = yield* db
+            .select()
+            .from(listing)
+            .where(eq(listing.id, id))
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+          const row = yield* Effect.fromNullable(retrievedRows[0]).pipe(
+            Effect.mapError(() => new NotFoundError({ id })),
+          );
+          if (row.userId !== requestingUserId) {
+            yield* Effect.fail(
               new UnauthorizedError({ reason: "Tu n'es pas le vendeur" }),
-            )
-          : Effect.succeed(row),
-      ),
-      Effect.flatMap(() =>
-        Effect.tryPromise({
-          try: () =>
-            db
-              .update(listing)
-              .set({ ...input, updatedAt: new Date() })
-              .where(eq(listing.id, id))
-              .returning()
-              .then((rows) => rows[0]!),
-          catch: (cause) => new DatabaseError({ cause }),
+            );
+          }
+          const resultRows = yield* db
+            .update(listing)
+            .set({ ...input, updatedAt: new Date() })
+            .where(eq(listing.id, id))
+            .returning()
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+          return yield* Effect.fromNullable(resultRows[0]).pipe(
+            Effect.mapError(
+              () => new DatabaseError({ cause: "Insert returned no row" }),
+            ),
+          );
         }),
-      ),
-    ),
 
-  delete: (id, requestingUserId) =>
-    Effect.tryPromise({
-      try: () =>
+      delete: (id, requestingUserId) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select()
+            .from(listing)
+            .where(eq(listing.id, id))
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+          const row = yield* Effect.fromNullable(rows[0]).pipe(
+            Effect.mapError(() => new NotFoundError({ id })),
+          );
+          if (row.userId !== requestingUserId) {
+            yield* Effect.fail(
+              new UnauthorizedError({ reason: "Tu n'es pas le vendeur" }),
+            );
+          }
+          return yield* db
+            .delete(listing)
+            .where(eq(listing.id, id))
+            .pipe(Effect.mapError((cause) => new DatabaseError({ cause })));
+        }),
+
+      listByUser: (userId) =>
         db
           .select()
           .from(listing)
-          .where(eq(listing.id, id))
-          .then((rows) => rows[0]),
-      catch: (cause) => new DatabaseError({ cause }),
-    }).pipe(
-      Effect.flatMap((row) =>
-        row ? Effect.succeed(row) : Effect.fail(new NotFoundError({ id })),
-      ),
-      Effect.flatMap((row) =>
-        row.userId !== requestingUserId
-          ? Effect.fail(
-              new UnauthorizedError({ reason: "Tu n'es pas le vendeur" }),
-            )
-          : Effect.succeed(row),
-      ),
-      Effect.flatMap(() =>
-        Effect.tryPromise({
-          try: () => db.delete(listing).where(eq(listing.id, id)).execute(),
-          catch: (cause) => new DatabaseError({ cause }),
-        }),
-      ),
-      Effect.map(() => undefined),
-    ),
-
-  listByUser: (userId) =>
-    Effect.tryPromise({
-      try: () => db.select().from(listing).where(eq(listing.userId, userId)),
-      catch: (cause) => new DatabaseError({ cause }),
-    }),
-});
+          .where(eq(listing.userId, userId))
+          .pipe(Effect.mapError((cause) => new DatabaseError({ cause }))),
+    };
+  }),
+).pipe(Layer.provide(DatabaseLive));
 
 // --- Layer Mock (tests) ---
 
 export const ListingRepositoryMock = Layer.succeed(ListingRepository, {
-  getById: (id) =>
+  findById: (id) =>
     Effect.succeed({
       id,
       title: "One Piece Vol. 1",
