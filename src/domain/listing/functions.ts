@@ -1,22 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-import { ListingRepository, ListingRepositoryLive } from "./repository";
+import { ListingRepository } from "./repository";
 import { SessionError } from "./errors";
 import { indexListing, removeListing } from "./search";
 import type { SqlError } from "@effect/sql/SqlError";
 
 import type { ListingInsert, ListingUpdate } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { TypesenseLive } from "@/lib/typesense";
+import { runtime, type AppContext } from "@/lib/runtime";
 
 type HttpError = Error & { status: number };
 
 const isNonNull = <T>(value: T | null | undefined): value is NonNullable<T> =>
   value != null;
 
-// Helper : récupère la session ou throw 401
 function requireSession() {
   return Effect.tryPromise({
     try: () => auth.api.getSession({ headers: getRequestHeaders() }),
@@ -34,18 +33,18 @@ function requireSession() {
   );
 }
 
-// Helper : run un Effect, absorbe SqlError (échec d'initialisation de la connexion)
-function run<T>(effect: Effect.Effect<T, HttpError | SqlError>) {
-  return effect.pipe(
-    Effect.catchTag("SqlError", ({ cause }) =>
-      Effect.fail(
-        Object.assign(new Error("Database connection error"), {
-          cause,
-          status: 500,
-        }) as HttpError,
+function run<T>(effect: Effect.Effect<T, HttpError | SqlError, AppContext>) {
+  return runtime.runPromise(
+    effect.pipe(
+      Effect.catchTag("SqlError", ({ cause }) =>
+        Effect.fail(
+          Object.assign(new Error("Database connection error"), {
+            cause,
+            status: 500,
+          }) as HttpError,
+        ),
       ),
     ),
-    Effect.runPromise,
   );
 }
 
@@ -58,7 +57,6 @@ export const getListing = createServerFn({ method: "GET" })
       const repository = yield* ListingRepository;
       return yield* repository.findById(id);
     }).pipe(
-      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -72,7 +70,7 @@ export const getListing = createServerFn({ method: "GET" })
     return run(effect);
   });
 
-// --- getListingWithUserStats (générateur : lisible comme de l'async/await) ---
+// --- getListingWithUserStats ---
 
 export const getListingWithUserStats = createServerFn({ method: "GET" })
   .inputValidator((id: string) => id)
@@ -83,7 +81,6 @@ export const getListingWithUserStats = createServerFn({ method: "GET" })
       const userListings = yield* repo.listByUser(listing.userId);
       return { listing, userListings };
     }).pipe(
-      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(
           Object.assign(new Error("Not found"), { status: 404 }) as HttpError,
@@ -110,9 +107,7 @@ export type CreateListingInput = Pick<
 export const createListing = createServerFn({ method: "POST" })
   .inputValidator((data: CreateListingInput) => data)
   .handler(async ({ data }) => {
-    const sessionEffect = requireSession();
-
-    const effect = sessionEffect.pipe(
+    const effect = requireSession().pipe(
       Effect.flatMap((session) =>
         ListingRepository.pipe(
           Effect.flatMap((repo) =>
@@ -121,7 +116,6 @@ export const createListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap((listing) => indexListing(listing)),
-      Effect.provide(Layer.merge(ListingRepositoryLive, TypesenseLive)),
       Effect.catchTag("ValidationError", ({ field, message }) =>
         Effect.fail(
           Object.assign(new Error(`${field}: ${message}`), { status: 400 }),
@@ -155,7 +149,6 @@ export const updateListing = createServerFn({ method: "POST" })
           Effect.flatMap((repo) => repo.update(id, input, session.user.id)),
         ),
       ),
-      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -183,7 +176,6 @@ export const deleteListing = createServerFn({ method: "POST" })
         ),
       ),
       Effect.tap(() => removeListing(id)),
-      Effect.provide(Layer.merge(ListingRepositoryLive, TypesenseLive)),
       Effect.catchTag("NotFoundError", () =>
         Effect.fail(Object.assign(new Error("Not found"), { status: 404 })),
       ),
@@ -217,7 +209,6 @@ export const listMyListings = createServerFn({ method: "GET" }).handler(
           Effect.flatMap((repo) => repo.listByUser(session.user.id)),
         ),
       ),
-      Effect.provide(ListingRepositoryLive),
       Effect.catchTag("DatabaseError", ({ cause }) =>
         Effect.fail(
           Object.assign(new Error("Database error"), { cause, status: 500 }),
